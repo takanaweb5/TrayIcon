@@ -52,7 +52,6 @@ uses
 type
   TClipList = class(TStringList)
   private
-    FType: Word;
     function GetSize(): Integer;
   public
     function GetMaxSizeIndex(AddSize: Integer; MaxSize: Integer): Integer;
@@ -205,8 +204,6 @@ type
     { Public 宣言 }
   end;
 
-  function Utf8Decode(const S: UTF8String): WideString;
-
 var
   CF_HTML: Word;
   MainForm: TMainForm;
@@ -269,8 +266,8 @@ begin
   //WebBrowserでコピーが出来るようにするおまじない
   OleInitialize(nil);
 
-  //クリップボードビューアとして登録
-  FClipSet := true;   //WM_DRAWCLIPBOARDが発生するため
+  //クリップボードリスナーとして登録
+  FClipSet := true;
   AddClipboardFormatListener(Self.Handle);
   FClipSet := false;
 
@@ -417,7 +414,7 @@ end;
 procedure TMainForm.SetClipboardFromHistory();
 var
   s,k: Integer;
-  HTMLString: string;
+  HTMLString: AnsiString;
 begin
   s := PageControl1.ActivePageIndex;
   k := FListBox[s].ItemIndex;
@@ -429,9 +426,9 @@ begin
     Clipboard.Clear;
     Clipboard.AsText := FTextList[s][k];
 
-    HTMLString := FHTMLList[s][k];
-    if (HTMLString <> NO_HTML) and (HTMLString <> LIMIT_OVER) then
+    if (FHTMLList[s][k] <> NO_HTML) and (FHTMLList[s][k] <> LIMIT_OVER) then
     begin
+      HTMLString := AnsiString(UTF8String(FHTMLList[s][k]));
       SetBuffer(CF_HTML, HTMLString[1], Length(HTMLString) + 1);
     end;
   finally
@@ -498,7 +495,6 @@ var
   TextString: Widestring;
   HTMLString: string;
   TabType: Integer;
-  Picture: TPicture;
 begin
   //クリップボードに文字列データがあるか判定
   if Clipboard.HasFormat(CF_UNICODETEXT) then begin
@@ -788,7 +784,7 @@ begin
   pnlHTML.Visible := false;
   memDisplay.Visible := True;
   memDisplay.SelectAll;
-  memDisplay.Lines.Text := Trim(UTF8Decode(HTMLString));
+  memDisplay.Lines.Text := HTMLString;
   PageControl2.ActivePageIndex := 0;
 end;
 
@@ -807,7 +803,7 @@ begin
   if i > 0 then begin
     if j > i then begin
       S := Copy(HTMLString, i + Length('SourceURL') + 1, j - i- Length('SourceURL'));
-      ShellExecuteW(Self.Handle,'', PWideChar(Trim(UTF8Decode(S))), '', '', 0);
+      ShellExecute(Self.Handle,'', PChar(Trim(S)), '', '', 0);
     end;
   end;
 end;
@@ -827,7 +823,7 @@ procedure TMainForm.SetmemDisplay();
     S := '<META CHARSET=UTF-8>' + DeleteTags(S);
     //インターフェースはFreeしなくて良い
     //soOwned指定により、TStringStreamはTStreamAdapterの中で解放される
-    Stream := TStreamAdapter.Create(TStringStream.Create(S), soOwned);
+    Stream := TStreamAdapter.Create(TStringStream.Create(UTF8String(S)), soOwned);
     (WebBrowser.Document as IPersistStreamInit).Load(Stream);
   end;
 var
@@ -914,7 +910,7 @@ end;
 function TMainForm.DeleteTag(HTMLSource, TagName: string): string;
 var
   i,j: Integer;
-  strHTML: Ansistring;
+  strHTML: string;
 begin
   strHTML := HTMLSource;
   while True do begin
@@ -1006,7 +1002,7 @@ begin
   Data := GetClipboardData(Format);
   try
     if Data <> 0 then
-      Result := PChar(GlobalLock(Data))
+      Result := UTF8String(PansiChar(GlobalLock(Data)))
     else
       Result := '';
   finally
@@ -1490,24 +1486,6 @@ begin
     end;
   end;
   Result := Self.Count;
-end;
-
-//*****************************************************************************
-//[ 概  要 ]　UTF8の文字列をWideStringに変換する
-//[ 引  数 ]　UTF8の文字列
-//[ 戻り値 ]　WideString
-//*****************************************************************************
-function Utf8Decode(const S: UTF8String): WideString;
-var
-  InSize, RtnLen: Integer;
-  Buf: array of WideChar;
-begin
-  InSize := Length(S);
-  SetLength(Buf,InSize);
-  RtnLen := MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(S), InSize, PWideChar(Buf), InSize * 2);
-  if RtnLen > 0 then begin
-    Result := PWideChar(Buf);
-  end;
 end;
 
 end.
