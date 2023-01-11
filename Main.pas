@@ -149,13 +149,9 @@ type
     MenuItem15: TMenuItem;
     scrImage: TScrollBox;
     imgImage: TImage;
-    tmTimer: TTimer;
-    procedure tmTimerTimer(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormResize(Sender: TObject);
-    procedure FormShow(Sender: TObject);
-    procedure FormHide(Sender: TObject);
     procedure CloseClick(Sender: TObject);
     procedure menExitClick(Sender: TObject);
     procedure ListBoxClick(Sender: TObject);
@@ -175,11 +171,9 @@ type
     procedure menWebAllSelectClick(Sender: TObject);
     procedure menJumpURLClick(Sender: TObject);
     procedure menShowSourceClick(Sender: TObject);
-    procedure trayIconMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
   private
     FNavigate: Boolean;
     FhMap: THandle;
-    FNextWnd: HWND;
     FTextList: array[0..TB_SAVE] of TClipList;
     FHtmlList: array[0..TB_SAVE] of TClipList;
     FListBox:  array[0..TB_SAVE] of TListBox;
@@ -187,8 +181,7 @@ type
     FClipSet: Boolean; //自アプリ内でクリップボードに取り出している時
     procedure WMUser1(var msg: TMessage); message WM_USER + 1;
     procedure WMSysCommand(var msg: TWMSysCommand); message WM_SYSCOMMAND;
-    procedure WMDrawClipboard(var msg: TMessage); message WM_DRAWCLIPBOARD;
-    procedure WMChangeChain(var msg: TWMChangeCBChain); message WM_CHANGECBCHAIN;
+    procedure WMClipboardUpdate(var msg: TMessage); message WM_CLIPBOARDUPDATE;
     procedure HookWndProc(var Msg: TMsg; var Handled: Boolean);
     procedure SetBuffer(Format: Word; var Buffer; Size: Integer);
     function GetHtmlText(Format: Word): string;
@@ -208,7 +201,6 @@ type
     function GetClipboardFormatID(FormatName: string): Word;
     procedure ShowHTMLClipSource(HTMLString: string);
     procedure ShowURL(HTMLString: string);
-    procedure ReSetClipboardViewer();
   public
     { Public 宣言 }
   end;
@@ -279,7 +271,7 @@ begin
 
   //クリップボードビューアとして登録
   FClipSet := true;   //WM_DRAWCLIPBOARDが発生するため
-  FNextWnd := SetClipboardViewer(Self.Handle);
+  AddClipboardFormatListener(Self.Handle);
   FClipSet := false;
 
   //WebBrowserで右クリックを出来るようにする
@@ -375,7 +367,7 @@ begin
   end;
 
   //クリップボードビューアから削除
-  ChangeClipboardChain(Self.Handle,FNextWnd);
+  RemoveClipboardFormatListener(Self.Handle);
 
   //WebBrowserでコピーが出来るようにするおまじない
   OleUninitialize;
@@ -393,26 +385,6 @@ begin
   btnSave.Width     := ToolBar1.Width div 4;
   btnAllClear.Width := ToolBar1.Width div 4;
   btnClose.Width    := ToolBar1.Width - (ToolBar1.Width div 4) * 3;
-end;
-
-//*****************************************************************************
-//[ 概  要 ]　フォーム表示時にタイマーを無効にする
-//[ 引  数 ]　TObject
-//[ 戻り値 ]　なし
-//*****************************************************************************
-procedure TMainForm.FormShow(Sender: TObject);
-begin
-  tmTimer.Enabled := False;
-end;
-
-//*****************************************************************************
-//[ 概  要 ]　フォームを閉じる時にタイマーを有効にする
-//[ 引  数 ]　TObject
-//[ 戻り値 ]　なし
-//*****************************************************************************
-procedure TMainForm.FormHide(Sender: TObject);
-begin
-  tmTimer.Enabled := True;
 end;
 
 ////*****************************************************************************
@@ -489,30 +461,11 @@ begin
 end;
 
 //*****************************************************************************
-//[ 概  要 ]　クリップボードビュアーに変更があった時通知される
-//[ 引  数 ]　Msg
-//[ 戻り値 ]　なし
-//*****************************************************************************
-procedure TMainForm.WMChangeChain(var msg: TWMChangeCBChain);
-begin
-  //自分の次のクリップボードビュアーが削除された時、次のクリップボードビュアーを置換える
-  if msg.Remove = FNextWnd then begin
-    FNextWnd := msg.Next;
-  end
-  else begin
-    if FNextWnd <> 0 then begin
-      //自分の次のクリップボードビュアーにメッセージを送信する
-      SendMessage(FNextWnd,msg.Msg,msg.Remove,msg.Next);
-    end;
-  end;
-end;
-
-//*****************************************************************************
 //[ 概  要 ]　クリップボードに変更があった時通知される
 //[ 引  数 ]　Msg
 //[ 戻り値 ]　なし
 //*****************************************************************************
-procedure TMainForm.WMDrawClipboard(var msg: TMessage);
+procedure TMainForm.WMClipboardUpdate(var msg: TMessage);
 begin
   //自アプリ内でクリップボードの「取り出し」時は対象外にする
   if FClipSet then Exit;
@@ -531,8 +484,6 @@ begin
     tabDebug.TabVisible := true;
     end;
   end;
-
-  SendMessage(FNextWnd,msg.Msg,msg.WParam,msg.LParam);
 
   FClipSet := false;
 end;
@@ -1557,44 +1508,6 @@ begin
   if RtnLen > 0 then begin
     Result := PWideChar(Buf);
   end;
-end;
-
-//*****************************************************************************
-//[ 概  要 ]　トレイアイコンクリック時
-//            クリップボードチェーンがいつのまにか切れてしまう不具合対応
-//[ 引  数 ]　TObjectなど
-//[ 戻り値 ]　なし
-//*****************************************************************************
-procedure TMainForm.trayIconMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-begin
-  ReSetClipboardViewer();
-end;
-
-//*****************************************************************************
-//[ 概  要 ]　タイマー実行時(300秒間隔)
-//            クリップボードチェーンがいつのまにか切れてしまう不具合対応
-//[ 引  数 ]　TObject
-//[ 戻り値 ]　なし
-//*****************************************************************************
-procedure TMainForm.tmTimerTimer(Sender: TObject);
-begin
-  ReSetClipboardViewer();
-end;
-
-//*****************************************************************************
-//[ 概  要 ]　クリップボードビューアを再登録
-//            クリップボードチェーンがいつのまにか切れてしまう不具合対応
-//[ 引  数 ]　なし
-//[ 戻り値 ]　なし
-//*****************************************************************************
-procedure TMainForm.ReSetClipboardViewer();
-begin
-  //クリップボードビューアから一旦削除
-  ChangeClipboardChain(Self.Handle, FNextWnd);
-  //クリップボードビューアを再登録
-  FClipSet := true;   //WM_DRAWCLIPBOARDが発生するため
-  FNextWnd := SetClipboardViewer(Self.Handle);
-  FClipSet := false;
 end;
 
 end.

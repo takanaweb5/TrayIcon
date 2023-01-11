@@ -16,9 +16,7 @@ object MainForm: TMainForm
   Position = poDesigned
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  OnHide = FormHide
   OnResize = FormResize
-  OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
@@ -159,7 +157,7 @@ object MainForm: TMainForm
       object lstHTML: TListBox
         Left = 0
         Top = 0
-        Width = 292
+        Width = 284
         Height = 125
         Align = alClient
         Font.Charset = DEFAULT_CHARSET
@@ -180,7 +178,7 @@ object MainForm: TMainForm
       object lstFile: TListBox
         Left = 0
         Top = 0
-        Width = 292
+        Width = 284
         Height = 125
         Align = alClient
         Font.Charset = DEFAULT_CHARSET
@@ -201,7 +199,7 @@ object MainForm: TMainForm
       object lstDebug: TListBox
         Left = 0
         Top = 0
-        Width = 292
+        Width = 284
         Height = 125
         Align = alClient
         Font.Charset = DEFAULT_CHARSET
@@ -219,7 +217,7 @@ object MainForm: TMainForm
       object lstPicture: TListBox
         Left = 0
         Top = 0
-        Width = 292
+        Width = 284
         Height = 125
         Align = alClient
         Font.Charset = DEFAULT_CHARSET
@@ -240,7 +238,7 @@ object MainForm: TMainForm
       object lstSave: TListBox
         Left = 0
         Top = 0
-        Width = 292
+        Width = 284
         Height = 125
         Align = alClient
         Font.Charset = DEFAULT_CHARSET
@@ -346,8 +344,8 @@ object MainForm: TMainForm
       object memMemo: TMemo
         Left = 0
         Top = 0
-        Width = 292
-        Height = 142
+        Width = 284
+        Height = 130
         Align = alClient
         Color = clWhite
         Font.Charset = DEFAULT_CHARSET
@@ -379,7 +377,6 @@ object MainForm: TMainForm
     PopupMenu = popTrayMenu
     Visible = True
     OnClick = ActFormShowExecute
-    OnMouseDown = trayIconMouseDown
     Left = 224
     Top = 74
   end
@@ -602,11 +599,5 @@ object MainForm: TMainForm
       Caption = #35500#26126'(&H)'
       OnClick = menHelpClick
     end
-  end
-  object tmTimer: TTimer
-    Interval = 300000
-    OnTimer = tmTimerTimer
-    Left = 148
-    Top = 92
   end
 end
