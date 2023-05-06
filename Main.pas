@@ -148,6 +148,7 @@ type
     MenuItem15: TMenuItem;
     scrImage: TScrollBox;
     imgImage: TImage;
+    tmTimer: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormResize(Sender: TObject);
@@ -170,6 +171,7 @@ type
     procedure menWebAllSelectClick(Sender: TObject);
     procedure menJumpURLClick(Sender: TObject);
     procedure menShowSourceClick(Sender: TObject);
+    procedure tmTimerTimer(Sender: TObject);
   private
     FNavigate: Boolean;
     FhMap: THandle;
@@ -468,21 +470,9 @@ begin
   if FClipSet then Exit;
   if FListBox[PageControl1.ActivePageIndex].Focused then Exit;
 
-  //クリップボード変更中
-  FClipSet := True;
-
-  try
-    SaveClipData();
-  except on E: Exception do begin
-    //例外情報の出力
-    FTextList[TB_DEBUG].Insert(0, Format('WMDrawClipboard:%s %s', [E.Message, FormatDateTime('hh:mm:ss',Now())]));
-    FHTMLList[TB_DEBUG].Insert(0, NO_HTML);
-    if Self.Visible then ReSetListBox(TB_DEBUG);
-    tabDebug.TabVisible := true;
-    end;
-  end;
-
-  FClipSet := false;
+  //他のアプリが重くなる謎事象回避のため、クリップボードの取り出しは
+  //タイマーイベントで遅延させて行う
+  tmTimer.Enabled := true;
 end;
 
 //*****************************************************************************
@@ -806,6 +796,32 @@ begin
       ShellExecute(Self.Handle,'', PChar(Trim(S)), '', '', 0);
     end;
   end;
+end;
+
+//*****************************************************************************
+//[概要] タイマー実行時
+//       他のアプリが重くなる謎事象回避のためクリップボードの取り出しはここで行う
+//[引数] TObject
+//[戻値] なし
+//*****************************************************************************
+procedure TMainForm.tmTimerTimer(Sender: TObject);
+begin
+  //自アプリ内でクリップボードの「取り出し」時は対象外にする
+  FClipSet := True;
+
+  try
+    SaveClipData();
+  except on E: Exception do begin
+    //例外情報の出力
+    FTextList[TB_DEBUG].Insert(0, Format('WMDrawClipboard:%s %s', [E.Message, FormatDateTime('hh:mm:ss',Now())]));
+    FHTMLList[TB_DEBUG].Insert(0, NO_HTML);
+    if Self.Visible then ReSetListBox(TB_DEBUG);
+    tabDebug.TabVisible := true;
+    end;
+  end;
+
+  FClipSet := false;
+  tmTimer.Enabled := False;
 end;
 
 //*****************************************************************************

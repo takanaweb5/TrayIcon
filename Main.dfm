@@ -589,4 +589,11 @@ object MainForm: TMainForm
       OnClick = menHelpClick
     end
   end
+  object tmTimer: TTimer
+    Enabled = False
+    Interval = 50
+    OnTimer = tmTimerTimer
+    Left = 152
+    Top = 104
+  end
 end
